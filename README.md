@@ -91,10 +91,30 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 The association controller is shared with the RP2040 MySensors adapter in x2d-core;
 this ESPHome adapter alone pauses and restarts after confirmation.
 
-CI runs the host controller/encoder checks, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, authorization, STOP priority, counter exhaustion, corrupted storage, waveform equivalence and injected timing faults.
+CI runs the host controller, radio runtime, CC1101, encoder and flash-adapter checks with ASan/UBSan, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, authorization, STOP priority, counter exhaustion, corrupted storage, waveform equivalence, flash access guards and injected timing faults. The flash and SPI/GPIO doubles exercise software behavior, not physical hardware.
+
+To run the host checks with the same sanitizers locally, add these options to the CMake configuration command:
+
+```sh
+cmake -S . -B build -DX2D_CORE_DIR="$PWD/.core" \
+  -DCMAKE_CXX_FLAGS="-g -fsanitize=address,undefined -fno-omit-frame-pointer" \
+  -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
+cmake --build build
+UBSAN_OPTIONS=halt_on_error=1:print_stacktrace=1 ctest --test-dir build --output-on-failure
+```
 
 The RMT backend uses one continuous transaction at 10 MHz with 96 symbols of prefetch memory. STOP ends at the next complete frame not yet prefetched. A delayed interrupt can cause RMT to repeat stale data: the component detects lateness and reports `unknown`, but cannot prevent already-emitted corruption. Timing faults disable further RF until reboot. The IDF pin is intentional, including the internal clock-inspection API used to reject a rounded RMT clock.
 
 See [the qualification procedure](docs/qualification.md) for the required captures and motor tests. Physical-remote reception, measured position, USB identity migration and general support for other X2D/X3D motor families are outside this version.
+
+## Publish a component release
+
+CI runs on pull requests, pushes to `main`, manual workflow runs and published GitHub releases. Releases distribute the component source; users compile their own node configuration with the release tag in `external_components`.
+
+1. Choose a commit on `main` whose CI is green and which contains the release-enabled workflow. Create a new version tag for that commit, either beforehand or in GitHub's release form.
+2. Create and publish the GitHub release manually. Use a pre-release while hardware qualification remains outstanding, and note the supported ESPHome/ESP-IDF versions and qualification status in the release notes.
+3. Check the release's CI run in the Actions tab. It tests the tagged commit and compiles a temporary copy of the example that imports the component from the published Git tag. GitHub provides the source archives automatically.
+
+Publishing a release or pre-release triggers CI, including publication from a draft. Saving a draft or pushing a tag alone does not. The release is already visible during validation; a failed run leaves it published and requires manual follow-up. Editing its notes does not trigger another run; rerun the failed workflow from Actions after addressing the cause.
 
 Apache-2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE).
