@@ -1,0 +1,8 @@
+ESPHome X2D connector
+Copyright 2026 Guilhem
+
+Uses the separately versioned x2d-core library (Apache-2.0).
+The original rolling-transform attribution is maintained in that library:
+https://github.com/guilhem/x2d-core/blob/main/NOTICE
+
+ESPHome and ESP-IDF retain their respective upstream licenses and notices.
