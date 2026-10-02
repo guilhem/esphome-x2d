@@ -23,7 +23,8 @@ import esphome.final_validate as fv
 AUTO_LOAD = ["cover", "button", "text_sensor"]
 DEPENDENCIES = ["esp32", "spi", "api"]
 
-x2d_ns = cg.esphome_ns.namespace("x2d")
+# Generated main.cpp imports esphome; qualify our classes to distinguish ::x2d.
+x2d_ns = cg.global_ns.namespace("esphome").namespace("x2d")
 X2DComponent = x2d_ns.class_("X2DComponent", cg.Component, spi.SPIDevice)
 X2DCover = x2d_ns.class_("X2DCover", cover.Cover)
 X2DButton = x2d_ns.class_("X2DButton", button.Button)
@@ -35,7 +36,7 @@ CONF_ENROLLMENT_ENABLED = "enrollment_enabled"
 CONF_COVERS = "_covers"
 CONF_BUTTONS = "_buttons"
 CONF_STATUS = "_status"
-X2D_CORE_REF = "bc843047ab44ddf081a2abf63661e9f2e0b89bfd"
+X2D_CORE_REF = "85a05600f446d4030cbf8cfacc981cee67d07c96"
 
 
 def _validate_chip_ns(value):

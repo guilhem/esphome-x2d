@@ -64,7 +64,7 @@ bool RadioOutput::setup(bool transmit_enabled) {
   error_ = "transmission_disabled";
   if (!transmit_enabled) return true;
   if (!cc1101_.configure_transmitter()) return fail_("cc1101_configuration_failed");
-  ha_x2d::cc1101::DigitalInput input{};
+  ::x2d::cc1101::DigitalInput input{};
   if (!cc1101_.digital_input_verified(input)) return fail_("cc1101_data_pin_unverified");
   void *memory = heap_caps_malloc(sizeof(State), MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT);
   if (!memory) return fail_("radio_memory_unavailable");
@@ -123,7 +123,7 @@ bool IRAM_ATTR RadioOutput::done_callback_(rmt_channel_handle_t, const rmt_tx_do
   return false;
 }
 
-bool RadioOutput::start_burst(const ha_x2d::radio::Waveform &wave, uint32_t chip_ns, uint32_t &started_ms) {
+bool RadioOutput::start_burst(const ::x2d::radio::Waveform &wave, uint32_t chip_ns, uint32_t &started_ms) {
   if (!available() || active_ || chip_ns % 100) return false;
   const auto ticks = chip_ticks_from_ns(chip_ns);
   if (!ticks || !build_plan(wave, ticks, state_->plan)) return false;
@@ -143,8 +143,8 @@ bool RadioOutput::start_burst(const ha_x2d::radio::Waveform &wave, uint32_t chip
   return true;
 }
 
-ha_x2d::radio::FrameState RadioOutput::poll_burst(uint8_t &completed) {
-  using ha_x2d::radio::FrameState;
+::x2d::radio::FrameState RadioOutput::poll_burst(uint8_t &completed) {
+  using ::x2d::radio::FrameState;
   completed = 0;
   if (!active_ || !state_) return FrameState::unknown;
   completed = state_->encoder.lower_bound();
