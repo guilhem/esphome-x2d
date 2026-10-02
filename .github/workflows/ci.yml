@@ -2,10 +2,18 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
+  release:
+    types: [published]
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ci-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
   validate:
@@ -14,6 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@v5
         with:
@@ -43,14 +52,45 @@ jobs:
           ref: ${{ steps.core.outputs.ref }}
           path: .core
           persist-credentials: false
-      - name: Host controller checks
+      - name: Host checks with ASan and UBSan
+        env:
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
         run: |
-          cmake -S . -B build -DX2D_CORE_DIR="${{ github.workspace }}/.core"
+          cmake -S . -B build -DX2D_CORE_DIR="${{ github.workspace }}/.core" \
+            -DCMAKE_CXX_FLAGS="-g -fsanitize=address,undefined -fno-omit-frame-pointer" \
+            -DCMAKE_EXE_LINKER_FLAGS="-fsanitize=address,undefined"
           cmake --build build
           ctest --test-dir build --output-on-failure
       - name: Python configuration checks
         run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Select the example source
+        id: example
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'release' && github.event.release.tag_name || '' }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          import yaml
+
+          example = Path('examples/esp32-s3.yaml')
+          tag = os.environ['RELEASE_TAG']
+          if tag:
+              config = yaml.safe_load(example.read_text())
+              config['external_components'] = [{
+                  'source': {
+                      'type': 'git',
+                      'url': 'https://github.com/guilhem/esphome-x2d',
+                      'ref': tag,
+                  },
+                  'components': ['x2d'],
+              }]
+              example = Path(os.environ['RUNNER_TEMP']) / 'x2d-release.yaml'
+              example.write_text(yaml.safe_dump(config, sort_keys=False))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'path={example}\n')
+          PY
       - name: Validate the example
-        run: esphome config examples/esp32-s3.yaml
+        run: esphome config "${{ steps.example.outputs.path }}"
       - name: Compile ESP32-S3 with ESP-IDF 5.5.5
-        run: esphome compile examples/esp32-s3.yaml
+        run: esphome compile "${{ steps.example.outputs.path }}"

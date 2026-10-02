@@ -10,11 +10,11 @@ static uint32_t duration(uint32_t word) { return (word & 0x7FFF) + ((word >> 16)
 
 // Model the driver's 96-word initial fill followed by 48-word consumed halves.
 // Decode the resulting waveform independently of the encoder's run index.
-static void transmission(const Waveform &wave, int stop_after_refill) {
+static void transmission(const Waveform &wave, int stop_after_refill, RadioEncoder &encoder) {
   RadioPlan plan{};
   assert(build_plan(wave, chip_ticks_from_ns(208500), plan));
-  RadioEncoder encoder;
   encoder.begin(&plan);
+  assert(encoder.fault() == RadioFault::none && !encoder.encoded() && !encoder.transfer_done());
   std::vector<uint32_t> output;
   uint32_t buffer[kMemWords];
   uint64_t consumed_ticks = 0;
@@ -69,17 +69,20 @@ static void transmission(const Waveform &wave, int stop_after_refill) {
 int main() {
   assert(chip_ticks_from_ns(208500) == 2085);
   assert(!chip_ticks_from_ns(1) && !chip_ticks_from_ns(4000000));
+  RadioEncoder encoder;
   for (uint16_t counter : {0, 1, 2, 999, 65535}) {
     for (uint8_t phase : {0, 1, 2}) {
       Body body{};
       assert(phase < 2 ? make_enrollment_body(0x123456, counter, phase, &body)
                        : make_command_body(0x123456, x2d::Action::stop, counter, &body));
-      Waveform wave;
-      assert(encode_burst(body, 25, &wave));
-      transmission(wave, -1);
-      // Every refill point, including before the first prefetch and after the
-      // final copy, must terminate on a whole frame with unchanged prefix.
-      for (int stop = 0; stop < 60; ++stop) transmission(wave, stop);
+      for (uint8_t copies : {24, 25}) {
+        Waveform wave;
+        assert(encode_burst(body, copies, &wave));
+        transmission(wave, -1, encoder);
+        // Every refill point, including before the first prefetch and after the
+        // final copy, must terminate on a whole frame with unchanged prefix.
+        for (int stop = 0; stop < 60; ++stop) transmission(wave, stop, encoder);
+      }
     }
   }
   Body body{};
@@ -87,13 +90,19 @@ int main() {
   assert(make_body(0x123456, 0x04, 123, &body) && encode_burst(body, 25, &wave));
   RadioPlan plan{};
   assert(build_plan(wave, 2085, plan));
-  RadioEncoder encoder;
   encoder.begin(&plan);
   uint32_t words[kMemWords];
   auto first = encoder.encode(words, kMemWords, 1000000);
   assert(first.words == kMemWords && !first.done);
-  auto late = encoder.encode(words, kHalfWords, 1000000 + encoder.ticks() / kTicksPerUs);
+  auto on_time = encoder.encode(words, kHalfWords, encoder.refill_deadline_us());
+  assert(on_time.words == kHalfWords && !on_time.done && encoder.fault() == RadioFault::none);
+  auto late = encoder.encode(words, kHalfWords, encoder.refill_deadline_us() + 1);
   assert(late.done && !late.words && encoder.fault() == RadioFault::late);
+  encoder.request_stop();
+  encoder.on_done(1000000 + encoder.ticks() / kTicksPerUs, encoder.words() + 1);
+  assert(encoder.encoded() && encoder.transfer_done());
+  // A new burst clears the previous STOP, late fault and completion state.
+  transmission(wave, -1, encoder);
 
   assert(encode_burst(body, 1, &wave) && build_plan(wave, 2085, plan));
   encoder.begin(&plan);
@@ -104,10 +113,15 @@ int main() {
   assert(encoder.judge_done() == RadioDone::symbols);
   encoder.on_done(expected - kDoneEarlyUs - 1, encoder.words() + 1);
   assert(encoder.judge_done() == RadioDone::early);
+  encoder.on_done(expected - kDoneEarlyUs, encoder.words() + 1);
+  assert(encoder.judge_done() == RadioDone::ok);
+  encoder.on_done(expected + kDoneLateUs, encoder.words() + 1);
+  assert(encoder.judge_done() == RadioDone::ok);
   encoder.on_done(expected + kDoneLateUs + 1, encoder.words() + 1);
   assert(encoder.judge_done() == RadioDone::late);
   encoder.on_done(expected, encoder.words() + 1);
   assert(encoder.judge_done() == RadioDone::ok && encoder.frames_done() == 1);
+  assert(!encoder.watchdog_expired(expected + kWatchdogUs));
   assert(encoder.watchdog_expired(expected + kWatchdogUs + 1));
   puts("encoder: waveform equivalence, every STOP prefetch boundary and timing-fault checks passed");
 }

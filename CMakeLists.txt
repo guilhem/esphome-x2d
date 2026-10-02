@@ -6,13 +6,20 @@ if(NOT EXISTS "${X2D_CORE_DIR}/src/x2d/controller.h" OR NOT EXISTS "${X2D_CORE_D
 endif()
 add_subdirectory("${X2D_CORE_DIR}" core)
 enable_testing()
-# The controller suite is the core's own; it runs here against the pinned commit.
+# Reuse the core's checks against the component's pinned commit.
 foreach(source IN ITEMS "${X2D_CORE_DIR}/tests/check_controller.cpp"
-                        tests/check_radio_encoder.cpp)
+                        "${X2D_CORE_DIR}/tests/check_radio_runtime.cpp"
+                        "${X2D_CORE_DIR}/tests/check_cc1101.cpp"
+                        tests/check_radio_encoder.cpp
+                        tests/check_storage.cpp)
   get_filename_component(check "${source}" NAME_WE)
   add_executable(${check} "${source}")
   target_link_libraries(${check} PRIVATE x2d::core)
   target_include_directories(${check} PRIVATE components/x2d)
   target_compile_options(${check} PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+  if(check STREQUAL "check_storage")
+    target_include_directories(${check} PRIVATE tests/idf_stubs)
+    target_compile_definitions(${check} PRIVATE X2D_JOURNAL_ADDRESS=0x3E0000)
+  endif()
   add_test(NAME ${check} COMMAND ${check})
 endforeach()
