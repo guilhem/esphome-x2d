@@ -1,0 +1,40 @@
+esphome:
+  name: x2d-shutters
+  friendly_name: X2D Shutters
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  flash_size: 4MB
+  framework:
+    type: esp-idf
+    version: 5.5.5
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [x2d]
+
+logger:
+api:
+  reboot_timeout: 0s
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: "CHANGE_ME"
+  password: "CHANGE_ME_PASSWORD"
+
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+  miso_pin: GPIO13
+
+x2d:
+  cs_pin: GPIO10
+  # CC1101 GDO0: add an external 10 kohm pull-down to ground.
+  data_pin: GPIO9
+  chip_ns: 208500
+  transmit_enabled: false
+  enrollment_enabled: false
