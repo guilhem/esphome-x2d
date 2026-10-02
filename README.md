@@ -88,6 +88,9 @@ ctest --test-dir build --output-on-failure
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
+The association controller is shared with the RP2040 MySensors adapter in x2d-core;
+this ESPHome adapter alone pauses and restarts after confirmation.
+
 CI runs the host controller/encoder checks, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, authorization, STOP priority, counter exhaustion, corrupted storage, waveform equivalence and injected timing faults.
 
 The RMT backend uses one continuous transaction at 10 MHz with 96 symbols of prefetch memory. STOP ends at the next complete frame not yet prefetched. A delayed interrupt can cause RMT to repeat stale data: the component detects lateness and reports `unknown`, but cannot prevent already-emitted corruption. Timing faults disable further RF until reboot. The IDF pin is intentional, including the internal clock-inspection API used to reject a rounded RMT clock.

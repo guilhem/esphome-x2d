@@ -61,7 +61,7 @@ void X2DComponent::add_cover(X2DCover *cover, uint8_t slot) {
 void X2DComponent::setup() {
   const bool storage_found = flash_.open();
   const bool radio_ok = radio_.setup(storage_found && transmit_enabled_);
-  PairingAuthorization authorization{};
+  ha_x2d::PairingAuthorization authorization{};
 #if defined(X2D_ENROLLMENT_ENABLED) && defined(X2D_TRIAL_SLOT) && defined(X2D_TRIAL_IDENTITY_SUFFIX) && defined(X2D_TRIAL_EXPECTED_NEXT_COUNTER)
   authorization = {X2D_TRIAL_SLOT, X2D_TRIAL_IDENTITY_SUFFIX, X2D_TRIAL_EXPECTED_NEXT_COUNTER};
 #endif
@@ -91,7 +91,14 @@ void X2DComponent::setup() {
 void X2DComponent::loop() { controller_.tick(millis()); }
 
 void X2DComponent::confirm() {
-  if (controller_.confirm()) set_timeout(200, [] { App.safe_reboot(); });
+  // The core only records the association. A new entity needs a reboot, so the
+  // adapter pauses RF and owns the restart; the controller refuses until then.
+  const uint8_t slot = controller_.pending_slot();
+  if (!controller_.confirm()) return;
+  restarting_ = true;
+  controller_.pause("restarting");
+  status("paired_restarting", slot);
+  set_timeout(200, [] { App.safe_reboot(); });
 }
 
 uint32_t X2DComponent::random_u32() { return esp_random(); }
@@ -116,8 +123,8 @@ void X2DComponent::tx_result(const ha_x2d::radio::TxEvent &event) {
   }
 }
 
-void X2DComponent::quiesce_() {
-  controller_.pause();
+void X2DComponent::quiesce_(const char *reason) {
+  controller_.pause(reason);
   const uint32_t start = millis();
   while (controller_.active() && millis() - start < 250) {
     controller_.tick(millis());
@@ -130,15 +137,18 @@ void X2DComponent::quiesce_() {
   }
 }
 
-void X2DComponent::on_shutdown() { quiesce_(); }
+void X2DComponent::on_shutdown() {
+  restarting_ = true;
+  quiesce_("restarting");
+}
 
 #ifdef USE_OTA
 void X2DComponent::on_ota_global_state(ota::OTAState state, float, uint8_t, ota::OTAComponent *) {
   if (state == ota::OTA_STARTED) {
-    quiesce_();  // Native OTA invokes this synchronously before backend.begin().
+    quiesce_("update_in_progress");  // Native OTA invokes this synchronously before backend.begin().
     status("update_in_progress", 0);
   } else if (state == ota::OTA_ABORT || state == ota::OTA_ERROR) {
-    controller_.resume();
+    if (!restarting_) controller_.resume();
     status("update_failed", 0);
   }
 }

@@ -8,7 +8,7 @@
 #include "esphome/components/ota/ota_backend.h"
 #endif
 
-#include "controller.h"
+#include <controller.h>
 #include "radio.h"
 #include "storage.h"
 
@@ -66,15 +66,16 @@ class X2DComponent : public Component, public RadioBus
                            ota::OTAComponent *component) override;
 #endif
  protected:
-  void quiesce_();
+  void quiesce_(const char *reason);
   JournalFlash flash_;
   ha_x2d::journal::Journal journal_;
   RadioOutput radio_;
-  Controller<RadioOutput, X2DComponent> controller_;
+  ha_x2d::Controller<RadioOutput, X2DComponent> controller_;
   X2DCover *covers_[ha_x2d::MAX_SHUTTERS]{};
   text_sensor::TextSensor *status_sensor_ = nullptr;
   uint32_t chip_ns_ = 208500;
   bool transmit_enabled_ = false, enrollment_enabled_ = false;
+  bool restarting_ = false;  // Once set, only the reboot may follow: never resume RF.
 };
 
 }  // namespace esphome::x2d
