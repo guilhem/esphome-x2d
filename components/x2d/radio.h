@@ -22,9 +22,7 @@ class RadioBus : public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLA
   uint32_t now_us() { return micros(); }
   void delay_us(uint32_t value) { delayMicroseconds(value); }
   void data_write(bool high) { data_pin_->digital_write(high); }
-  void data_output(bool output) {
-    data_pin_->pin_mode(output ? gpio::FLAG_OUTPUT : gpio::FLAG_INPUT);
-  }
+  void data_output(bool output);
   int data_gpio() const { return data_pin_->get_pin(); }
   void force_low();
  protected:

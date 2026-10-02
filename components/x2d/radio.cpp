@@ -8,6 +8,7 @@
 #include <esp_private/rmt.h>
 #include <esp_rom_gpio.h>
 #include <esp_timer.h>
+#include <hal/gpio_ll.h>
 #include <soc/gpio_sig_map.h>
 #include <new>
 
@@ -18,6 +19,17 @@ static_assert(ESP_IDF_VERSION == ESP_IDF_VERSION_VAL(5, 5, 5), "X2D requires the
 static_assert(std::atomic<uint32_t>::is_always_lock_free, "ISR flags must be lock free");
 
 namespace esphome::x2d {
+
+void RadioBus::data_output(bool output) {
+  if (output) {
+    // gpio_set_direction(OUTPUT) resets the matrix to plain GPIO in IDF 5.5.5.
+    // Change only output-enable here, preserving the RMT signal. INPUT below
+    // keeps enable under GPIO control; force_low() explicitly detaches RMT.
+    gpio_ll_output_enable(&GPIO, data_gpio());
+  } else {
+    data_pin_->pin_mode(gpio::FLAG_INPUT);
+  }
+}
 
 bool RadioBus::setup_bus() {
   if (!data_pin_ || !miso_pin_ || !cs_) return false;
