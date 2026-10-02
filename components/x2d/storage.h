@@ -1,12 +1,12 @@
 #pragma once
 
-#include <journal.h>
+#include <x2d/journal.h>
 #include <esp_partition.h>
 #include <esp_flash.h>
 
 namespace esphome::x2d {
 
-class JournalFlash final : public ha_x2d::journal::Flash {
+class JournalFlash final : public ::x2d::journal::Flash {
  public:
   bool open() {
     partition_ = nullptr;
@@ -21,8 +21,8 @@ class JournalFlash final : public ha_x2d::journal::Flash {
     }
     if (matches != 1 || !partition_ || partition_->flash_chip != esp_flash_default_chip ||
         partition_->type != 0x40 || partition_->subtype != 0x01 ||
-        partition_->size != ha_x2d::journal::REGION_BYTES ||
-        partition_->erase_size != ha_x2d::journal::SECTOR_BYTES ||
+        partition_->size != ::x2d::journal::REGION_BYTES ||
+        partition_->erase_size != ::x2d::journal::SECTOR_BYTES ||
         partition_->address != X2D_JOURNAL_ADDRESS || partition_->encrypted || partition_->readonly) {
       partition_ = nullptr;
       return false;
@@ -34,12 +34,12 @@ class JournalFlash final : public ha_x2d::journal::Flash {
     return range(offset, length) && esp_partition_read(partition_, offset, out, length) == ESP_OK;
   }
   bool erase_sector(uint32_t offset) override {
-    constexpr auto bytes = ha_x2d::journal::SECTOR_BYTES;
+    constexpr auto bytes = ::x2d::journal::SECTOR_BYTES;
     return offset % bytes == 0 && range(offset, bytes) &&
            esp_partition_erase_range(partition_, offset, bytes) == ESP_OK;
   }
   bool program_page(uint32_t offset, const uint8_t *page) override {
-    constexpr auto bytes = ha_x2d::journal::PAGE_BYTES;
+    constexpr auto bytes = ::x2d::journal::PAGE_BYTES;
     return page && offset % bytes == 0 && range(offset, bytes) &&
            esp_partition_write(partition_, offset, page, bytes) == ESP_OK;
   }

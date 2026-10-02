@@ -8,7 +8,7 @@
 #include "esphome/components/ota/ota_backend.h"
 #endif
 
-#include <controller.h>
+#include <x2d/controller.h>
 #include "radio.h"
 #include "storage.h"
 
@@ -55,12 +55,12 @@ class X2DComponent : public Component, public RadioBus
   void set_chip_ns(uint32_t value) { chip_ns_ = value; }
   void set_status_sensor(text_sensor::TextSensor *sensor) { status_sensor_ = sensor; }
   void add_cover(X2DCover *cover, uint8_t slot);
-  void command(uint8_t slot, ha_x2d::Action action) { controller_.command(slot, action, millis()); }
+  void command(uint8_t slot, ::x2d::Action action) { controller_.command(slot, action, millis()); }
   void associate() { controller_.associate(millis()); }
   void confirm();
   uint32_t random_u32();
   void status(const char *message, uint8_t slot);
-  void tx_result(const ha_x2d::radio::TxEvent &event);
+  void tx_result(const ::x2d::radio::TxEvent &event);
 #ifdef USE_OTA
   void on_ota_global_state(ota::OTAState state, float progress, uint8_t error,
                            ota::OTAComponent *component) override;
@@ -68,10 +68,10 @@ class X2DComponent : public Component, public RadioBus
  protected:
   void quiesce_(const char *reason);
   JournalFlash flash_;
-  ha_x2d::journal::Journal journal_;
+  ::x2d::journal::Journal journal_;
   RadioOutput radio_;
-  ha_x2d::Controller<RadioOutput, X2DComponent> controller_;
-  X2DCover *covers_[ha_x2d::MAX_SHUTTERS]{};
+  ::x2d::Controller<RadioOutput, X2DComponent> controller_;
+  X2DCover *covers_[::x2d::MAX_SHUTTERS]{};
   text_sensor::TextSensor *status_sensor_ = nullptr;
   uint32_t chip_ns_ = 208500;
   bool transmit_enabled_ = false, enrollment_enabled_ = false;
