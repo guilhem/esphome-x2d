@@ -88,8 +88,10 @@ ctest --test-dir build --output-on-failure
 python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-The association controller is shared with the RP2040 MySensors adapter in x2d-core;
-this ESPHome adapter alone pauses and restarts after confirmation.
+The association controller comes from the transport-independent `x2d-core`
+library (`<x2d/...>`, namespace `x2d`). The RP2040 MySensors adapter lives in
+[`ha-x2d`](https://github.com/guilhem/ha-x2d); this ESPHome adapter owns native
+API visibility, OTA and restart after confirmation.
 
 CI runs the host controller, radio runtime, CC1101, encoder and flash-adapter checks with ASan/UBSan, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, authorization, STOP priority, counter exhaustion, corrupted storage, waveform equivalence, flash access guards and injected timing faults. The flash and SPI/GPIO doubles exercise software behavior, not physical hardware.
 

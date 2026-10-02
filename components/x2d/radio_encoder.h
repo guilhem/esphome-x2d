@@ -19,7 +19,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "radio_codec.h"
+#include <x2d/radio_codec.h>
 
 #if defined(ESP_PLATFORM)
 // Fold header helpers into the IRAM callbacks. Separate weak/COMDAT IRAM
@@ -40,7 +40,7 @@ constexpr uint32_t kMinSlackUs = 1000;      // refill must finish this long befo
 constexpr uint32_t kDoneEarlyUs = 1000;     // transaction end earlier than expected by more than this: mismatch
 constexpr uint32_t kDoneLateUs = 5000;      // later than expected by more than this: mismatch (stale data was sent)
 constexpr uint32_t kWatchdogUs = 50000;     // no transaction end this long after the expected end: timeout
-constexpr size_t kMaxRuns = ha_x2d::radio::MAX_CHIPS;  // a run is at least one chip
+constexpr size_t kMaxRuns = ::x2d::radio::MAX_CHIPS;  // a run is at least one chip
 constexpr uint16_t kNoBoundary = 0xFFFF;
 static_assert(kMaxRuns < kNoBoundary, "run indexes are 16 bit");
 
@@ -60,16 +60,16 @@ X2D_ISR constexpr uint32_t rmt_word(bool level0, uint32_t duration0, bool level1
 // boundary, so a copy always ends on a run boundary.
 struct RadioPlan {
   uint8_t run[kMaxRuns];                               // bit 7 level, bits 0..6 chips
-  uint16_t frame_end_run[ha_x2d::radio::MAX_COPIES];   // run index just after each copy
-  uint16_t frame_end_word[ha_x2d::radio::MAX_COPIES];  // words that must be sent to complete each copy
+  uint16_t frame_end_run[::x2d::radio::MAX_COPIES];   // run index just after each copy
+  uint16_t frame_end_word[::x2d::radio::MAX_COPIES];  // words that must be sent to complete each copy
   uint32_t total_ticks;
   uint16_t runs;
   uint16_t chip_ticks;
   uint8_t copies;
 };
 
-inline bool build_plan(const ha_x2d::radio::Waveform &wave, uint16_t chip_ticks, RadioPlan &plan) {
-  using namespace ha_x2d::radio;
+inline bool build_plan(const ::x2d::radio::Waveform &wave, uint16_t chip_ticks, RadioPlan &plan) {
+  using namespace ::x2d::radio;
   const size_t chips = wave.chips();
   const uint8_t copies = wave.copies();
   if (chip_ticks < 2 || chip_ticks > kMaxHalfTicks / 2 || !copies || copies > MAX_COPIES || !chips || chips > MAX_CHIPS)

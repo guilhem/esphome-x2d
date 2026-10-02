@@ -6,7 +6,7 @@
 #include <vector>
 
 using esphome::x2d::JournalFlash;
-using namespace ha_x2d::journal;
+using namespace x2d::journal;
 
 struct esp_partition_iterator { size_t index = 0; };
 

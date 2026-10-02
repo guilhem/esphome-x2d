@@ -4,7 +4,7 @@
 #include <vector>
 
 using namespace esphome::x2d;
-using namespace ha_x2d::radio;
+using namespace x2d::radio;
 
 static uint32_t duration(uint32_t word) { return (word & 0x7FFF) + ((word >> 16) & 0x7FFF); }
 
@@ -74,7 +74,7 @@ int main() {
     for (uint8_t phase : {0, 1, 2}) {
       Body body{};
       assert(phase < 2 ? make_enrollment_body(0x123456, counter, phase, &body)
-                       : make_command_body(0x123456, ha_x2d::Action::stop, counter, &body));
+                       : make_command_body(0x123456, x2d::Action::stop, counter, &body));
       for (uint8_t copies : {24, 25}) {
         Waveform wave;
         assert(encode_burst(body, copies, &wave));

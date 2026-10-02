@@ -2,8 +2,8 @@
 
 #include "esphome/components/spi/spi.h"
 #include "esphome/core/gpio.h"
-#include <cc1101.h>
-#include <radio_runtime.h>
+#include <x2d/cc1101.h>
+#include <x2d/radio_runtime.h>
 #include <driver/rmt_tx.h>
 
 namespace esphome::x2d {
@@ -36,8 +36,8 @@ class RadioOutput {
   bool setup(bool transmit_enabled);
   bool available() const { return available_ && cc1101_.configured(); }
   const char *error() const { return error_; }
-  bool start_burst(const ha_x2d::radio::Waveform &wave, uint32_t chip_ns, uint32_t &started_ms);
-  ha_x2d::radio::FrameState poll_burst(uint8_t &completed);
+  bool start_burst(const ::x2d::radio::Waveform &wave, uint32_t chip_ns, uint32_t &started_ms);
+  ::x2d::radio::FrameState poll_burst(uint8_t &completed);
   void request_stop();
   void end_burst();
   void force_abort();
@@ -48,7 +48,7 @@ class RadioOutput {
   static bool done_callback_(rmt_channel_handle_t, const rmt_tx_done_event_data_t *event, void *arg);
   bool fail_(const char *error);
   RadioBus &bus_;
-  ha_x2d::cc1101::Driver<RadioBus> cc1101_;
+  ::x2d::cc1101::Driver<RadioBus> cc1101_;
   State *state_ = nullptr;  // Internal SRAM, lifetime is the component/firmware.
   rmt_channel_handle_t channel_ = nullptr;
   rmt_encoder_handle_t encoder_ = nullptr;

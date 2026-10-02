@@ -37,11 +37,11 @@ void X2DCover::set_assumed_position(float value) {
 
 void X2DCover::control(const cover::CoverCall &call) {
   if (!parent_) return;
-  if (call.get_stop()) parent_->command(slot_, ha_x2d::Action::stop);
+  if (call.get_stop()) parent_->command(slot_, ::x2d::Action::stop);
   else if (call.get_position().has_value()) {
     const auto position = *call.get_position();
-    if (position == cover::COVER_OPEN) parent_->command(slot_, ha_x2d::Action::open);
-    else if (position == cover::COVER_CLOSED) parent_->command(slot_, ha_x2d::Action::close);
+    if (position == cover::COVER_OPEN) parent_->command(slot_, ::x2d::Action::open);
+    else if (position == cover::COVER_CLOSED) parent_->command(slot_, ::x2d::Action::close);
   }
 }
 
@@ -52,7 +52,7 @@ void X2DButton::press_action() {
 }
 
 void X2DComponent::add_cover(X2DCover *cover, uint8_t slot) {
-  if (!cover || slot < 1 || slot > ha_x2d::MAX_SHUTTERS) return;
+  if (!cover || slot < 1 || slot > ::x2d::MAX_SHUTTERS) return;
   covers_[slot - 1] = cover;
   cover->set_parent(this);
   cover->set_slot(slot);
@@ -61,12 +61,12 @@ void X2DComponent::add_cover(X2DCover *cover, uint8_t slot) {
 void X2DComponent::setup() {
   const bool storage_found = flash_.open();
   const bool radio_ok = radio_.setup(storage_found && transmit_enabled_);
-  ha_x2d::PairingAuthorization authorization{};
+  ::x2d::PairingAuthorization authorization{};
 #if defined(X2D_ENROLLMENT_ENABLED) && defined(X2D_TRIAL_SLOT) && defined(X2D_TRIAL_IDENTITY_SUFFIX) && defined(X2D_TRIAL_EXPECTED_NEXT_COUNTER)
   authorization = {X2D_TRIAL_SLOT, X2D_TRIAL_IDENTITY_SUFFIX, X2D_TRIAL_EXPECTED_NEXT_COUNTER};
 #endif
   const bool storage_ok = controller_.begin(transmit_enabled_, enrollment_enabled_, chip_ns_, authorization);
-  for (uint8_t slot = 1; slot <= ha_x2d::MAX_SHUTTERS; ++slot) {
+  for (uint8_t slot = 1; slot <= ::x2d::MAX_SHUTTERS; ++slot) {
     if (!covers_[slot - 1]) continue;
     covers_[slot - 1]->set_internal(!controller_.paired(slot));
     covers_[slot - 1]->set_assumed_position(NAN);
@@ -111,13 +111,13 @@ void X2DComponent::status(const char *message, uint8_t slot) {
   if (status_sensor_) status_sensor_->publish_state(text);
 }
 
-void X2DComponent::tx_result(const ha_x2d::radio::TxEvent &event) {
-  if (event.job.enrollment || !event.job.shutter_id || event.job.shutter_id > ha_x2d::MAX_SHUTTERS) return;
+void X2DComponent::tx_result(const ::x2d::radio::TxEvent &event) {
+  if (event.job.enrollment || !event.job.shutter_id || event.job.shutter_id > ::x2d::MAX_SHUTTERS) return;
   auto *cover = covers_[event.job.shutter_id - 1];
   if (!cover) return;
   if (!strcmp(event.outcome, "emitted")) {
-    cover->set_assumed_position(event.job.action == ha_x2d::Action::open ? cover::COVER_OPEN :
-                               event.job.action == ha_x2d::Action::close ? cover::COVER_CLOSED : NAN);
+    cover->set_assumed_position(event.job.action == ::x2d::Action::open ? cover::COVER_OPEN :
+                               event.job.action == ::x2d::Action::close ? cover::COVER_CLOSED : NAN);
   } else if (strcmp(event.outcome, "rejected")) {
     cover->set_assumed_position(NAN);
   }
