@@ -1,0 +1,9 @@
+/.core/
+/build/
+/.venv/
+**/.esphome/
+__pycache__/
+*.pyc
+secrets.yaml
+*.private.yaml
+*.private.h

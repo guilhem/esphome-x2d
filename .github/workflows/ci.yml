@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - name: Read the component's pinned core commit
+        id: core
+        run: |
+          python - <<'PY'
+          import ast
+          import os
+          from pathlib import Path
+          module = ast.parse(Path('components/x2d/__init__.py').read_text())
+          ref = next(ast.literal_eval(node.value) for node in module.body
+                     if isinstance(node, ast.Assign)
+                     and any(isinstance(target, ast.Name) and target.id == 'X2D_CORE_REF'
+                             for target in node.targets))
+          assert len(ref) == 40 and all(c in '0123456789abcdef' for c in ref)
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'ref={ref}\n')
+          PY
+      - uses: actions/checkout@v4
+        with:
+          repository: guilhem/x2d-core
+          ref: ${{ steps.core.outputs.ref }}
+          path: .core
+          persist-credentials: false
+      - name: Host controller checks
+        run: |
+          cmake -S . -B build -DX2D_CORE_DIR="${{ github.workspace }}/.core"
+          cmake --build build
+          ctest --test-dir build --output-on-failure
+      - name: Python configuration checks
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Validate the example
+        run: esphome config examples/esp32-s3.yaml
+      - name: Compile ESP32-S3 with ESP-IDF 5.5.5
+        run: esphome compile examples/esp32-s3.yaml
