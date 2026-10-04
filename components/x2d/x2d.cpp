@@ -1,21 +1,11 @@
 #include "x2d.h"
+#include "enrollment_profile.h"
 
 #include "esphome/core/application.h"
 #include "esphome/components/api/api_server.h"
 #include <esp_random.h>
 #include <cmath>
 #include <cstdio>
-
-#ifdef X2D_ENROLLMENT_ENABLED
-#if !defined(X2D_TRIAL_SLOT) || !defined(X2D_TRIAL_IDENTITY_SUFFIX) || !defined(X2D_TRIAL_EXPECTED_NEXT_COUNTER)
-#error "Enrollment requires private X2D_TRIAL_SLOT, X2D_TRIAL_IDENTITY_SUFFIX and X2D_TRIAL_EXPECTED_NEXT_COUNTER build flags"
-#else
-static_assert(X2D_TRIAL_SLOT >= 1 && X2D_TRIAL_SLOT <= 16, "Trial slot must be 1..16");
-static_assert(X2D_TRIAL_IDENTITY_SUFFIX >= 0 && X2D_TRIAL_IDENTITY_SUFFIX <= 255, "Trial suffix must be a byte");
-static_assert(X2D_TRIAL_EXPECTED_NEXT_COUNTER == 0 || X2D_TRIAL_EXPECTED_NEXT_COUNTER == 2,
-              "Only the supervised 0/1 attempt or explicit 2/3 resume is supported");
-#endif
-#endif
 
 namespace esphome::x2d {
 static const char *const TAG = "x2d";
@@ -61,11 +51,8 @@ void X2DComponent::add_cover(X2DCover *cover, uint8_t slot) {
 void X2DComponent::setup() {
   const bool storage_found = flash_.open();
   const bool radio_ok = radio_.setup(storage_found && transmit_enabled_);
-  ::x2d::PairingAuthorization authorization{};
-#if defined(X2D_ENROLLMENT_ENABLED) && defined(X2D_TRIAL_SLOT) && defined(X2D_TRIAL_IDENTITY_SUFFIX) && defined(X2D_TRIAL_EXPECTED_NEXT_COUNTER)
-  authorization = {X2D_TRIAL_SLOT, X2D_TRIAL_IDENTITY_SUFFIX, X2D_TRIAL_EXPECTED_NEXT_COUNTER};
-#endif
-  const bool storage_ok = controller_.begin(transmit_enabled_, enrollment_enabled_, chip_ns_, authorization);
+  const bool storage_ok = controller_.begin(transmit_enabled_, enrollment_enabled_, chip_ns_,
+                                           enrollment_profile());
   for (uint8_t slot = 1; slot <= ::x2d::MAX_SHUTTERS; ++slot) {
     if (!covers_[slot - 1]) continue;
     covers_[slot - 1]->set_internal(!controller_.paired(slot));
@@ -90,11 +77,17 @@ void X2DComponent::setup() {
 
 void X2DComponent::loop() { controller_.tick(millis()); }
 
+void X2DComponent::associate() {
+  const uint8_t slot = controller_.pending_slot();
+  if (slot) controller_.retry(slot, millis());
+  else controller_.associate(millis());
+}
+
 void X2DComponent::confirm() {
   // The core only records the association. A new entity needs a reboot, so the
   // adapter pauses RF and owns the restart; the controller refuses until then.
   const uint8_t slot = controller_.pending_slot();
-  if (!controller_.confirm()) return;
+  if (!controller_.confirm(slot)) return;
   restarting_ = true;
   controller_.pause("restarting");
   status("paired_restarting", slot);

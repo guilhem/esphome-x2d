@@ -23,3 +23,17 @@ foreach(source IN ITEMS "${X2D_CORE_DIR}/tests/check_controller.cpp"
   endif()
   add_test(NAME ${check} COMMAND ${check})
 endforeach()
+
+foreach(suffix IN ITEMS 0 90 255)
+  add_executable(check_enrollment_profile_${suffix} tests/check_enrollment_profile.cpp)
+  target_link_libraries(check_enrollment_profile_${suffix} PRIVATE x2d::core)
+  target_include_directories(check_enrollment_profile_${suffix} PRIVATE components/x2d)
+  target_compile_options(check_enrollment_profile_${suffix} PRIVATE -Wall -Wextra -Werror -UNDEBUG)
+  target_compile_definitions(check_enrollment_profile_${suffix} PRIVATE
+    X2D_ENROLLMENT_ENABLED X2D_TRIAL_IDENTITY_SUFFIX=${suffix})
+  add_test(NAME check_enrollment_profile_${suffix} COMMAND check_enrollment_profile_${suffix})
+endforeach()
+add_test(NAME check_enrollment_flags COMMAND ${CMAKE_COMMAND}
+  -DCXX=${CMAKE_CXX_COMPILER} -DCHECK_SOURCE=${CMAKE_CURRENT_SOURCE_DIR}
+  -DCHECK_BINARY=${CMAKE_CURRENT_BINARY_DIR} -DCORE_SOURCE=${X2D_CORE_DIR}
+  -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/check_enrollment_flags.cmake)

@@ -169,14 +169,14 @@ class ConfigTests(unittest.TestCase):
                 self.raw["x2d"]["chip_ns"] = period
                 self.assertEqual(self.valid()["x2d"]["chip_ns"], period)
 
-    def test_enrollment_codegen_requires_private_compile_authorization(self):
+    def test_enrollment_codegen_requires_private_suffix(self):
         self.raw["x2d"].update(transmit_enabled=True, enrollment_enabled=True)
         config = self.valid()
         generate_cpp_contents(config)
         defines = {define.name for define in CORE.defines}
         self.assertIn("X2D_ENROLLMENT_ENABLED", defines)
         self.assertTrue(esp32.is_idf_sdkconfig_option_enabled("CONFIG_RMT_TX_ISR_CACHE_SAFE"))
-        # C++ rejects compilation without explicit authorization for a trial slot.
+        # C++ requires an explicit private suffix; the lifecycle core owns slots and retries.
         self.assertTrue(defines.isdisjoint({
             "X2D_TRIAL_SLOT", "X2D_TRIAL_IDENTITY_SUFFIX", "X2D_TRIAL_EXPECTED_NEXT_COUNTER"
         }))

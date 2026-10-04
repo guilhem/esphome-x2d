@@ -249,5 +249,31 @@ int main() {
     for (size_t i = 0; i < fake::bytes.size(); ++i)
       assert(fake::bytes[i] == (i >= offset && i - offset < SECTOR_BYTES ? 0xff : 0x5a));
   }
-  puts("storage: partition validation, reopen, bounds/alignment, API errors and rejected-call isolation passed");
+  // Exercise the v2 journal through the actual ESPHome flash adapter: its
+  // larger snapshots still use page writes within the same 64 KiB partition.
+  fake::bytes.fill(0xff);
+  Journal journal(flash);
+  assert(journal.open() == StorageState::empty);
+  assert(journal.initialize(123, 456, 90) == Status::ok);
+  while (journal.state() == StorageState::initializing) assert(journal.maintain() == Status::ok);
+  assert(journal.allocate_candidate(1, false) == Status::ok);
+  assert(journal.claim_attempt(1, false) == Status::ok);
+  const uint32_t epoch = journal.incarnation(1, true);
+  Reservation reserved;
+  assert(journal.reserve(1, 0, false, &reserved, epoch, true) == Status::ok);
+  assert(reserved.counter == 0 && (reserved.identity & 255) == 90);
+  assert(journal.reserve(1, 0, false, &reserved, epoch, true) == Status::ok);
+  assert(reserved.counter == 1);
+  Journal reboot(flash);
+  assert(reboot.open() == StorageState::ready);
+  assert(reboot.shutter(1).has_candidate && reboot.incarnation(1, true) == epoch);
+  uint32_t next = 0;
+  assert(reboot.next_counter(1, &next, true) && next == 2);
+  assert(reboot.confirm_candidate(1) == Status::ok);
+  assert(reboot.shutter(1).in_service && reboot.incarnation(1) == epoch);
+  Journal confirmed(flash);
+  assert(confirmed.open() == StorageState::ready);
+  assert(confirmed.shutter(1).state == SlotState::paired && !confirmed.shutter(1).has_candidate);
+  assert(confirmed.next_counter(1, &next) && next == 2);
+  puts("storage: partition guards and v2 lifecycle persistence through ESPHome flash passed");
 }
