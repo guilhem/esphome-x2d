@@ -36,7 +36,7 @@ CONF_ENROLLMENT_ENABLED = "enrollment_enabled"
 CONF_COVERS = "_covers"
 CONF_BUTTONS = "_buttons"
 CONF_STATUS = "_status"
-X2D_CORE_REF = "4bda4869c9d77662e9bcc98bef9013b2a1990c0f"
+X2D_CORE_REF = "1eda9338b9df64c2098ac739bfefc2a2250a6a21"
 
 
 def _validate_chip_ns(value):
