@@ -56,18 +56,18 @@ GDO0 must remain low when the MCU resets while the CC1101 is transmitting. The p
 
 ## Associate and control a shutter
 
-Association currently requires a **private, supervised trial build** described in [qualification](docs/qualification.md). Simply setting `enrollment_enabled: true` does not authorize an unqualified identity profile; compilation requires the explicit trial parameters. Each trial authorizes one slot and one counter pair. Advancing to another trial slot requires an updated private build until the profile is physically qualified.
+Association currently requires a **private, supervised trial build** described in [qualification](docs/qualification.md). Simply setting `enrollment_enabled: true` does not authorize an unqualified identity profile; compilation requires the explicit trial parameters. The private build supplies the identity suffix used when initializing a new journal. Slot allocation and attempt bounds now belong to the lifecycle core; old slot/counter build flags are rejected.
 
 1. Put the target motor into its documented association mode.
-2. Press **Associer un volet**. The node reuses its pending slot, or chooses the lowest unused slot, and durably reserves the new identity and counters before transmitting.
+2. Press **Associer un volet**. With no pending association, the node chooses the lowest unused slot and durably allocates an identity before transmitting counters 0/1. With a pending association, this button requests the single explicit retry at counters 2/3; an incomplete first pair or an exhausted retry is refused.
 3. Observe the motor. Press **Confirmer l’association** only if it responded as expected. A successful radio emission alone is not confirmation.
 4. The node saves the association and restarts. Home Assistant discovers the new `Shutter1` … `Shutter16` entity; unused slots remain hidden.
 
-After a power cut, the pending identity and consumed counters remain stored. Confirmation can finish without retransmitting. A retry always needs an explicit button press and a matching trial authorization. No startup, reconnect or OTA recovery resends a command.
+After a power cut, the pending identity and consumed counters remain stored. Confirmation can finish without retransmitting. A retry always needs an explicit button press; the durable journal enforces its bounds. The journal retains its initialization suffix across builds. A different private suffix refuses additions and retries with `association_profile_unqualified` before allocating an identity or transmitting. Commands-only builds can still control stored bindings. No startup, reconnect or OTA recovery resends a command.
 
 Covers provide **open, close and STOP**, with native **assumed state** and no position percentage. An open/close estimate is published only after a complete emission. STOP, restart and uncertain emissions invalidate it. Home Assistant's native binary-cover rendering can show “open” for that unknown estimate; this is not motor feedback. The node never reports measured movement. An accepted command continues if Home Assistant disconnects.
 
-The global diagnostic identifies the affected slot and outcomes such as `awaiting_confirmation`, `association_counter_mismatch`, `radio_busy`, `counter_exhausted` or `storage_corrupt`. RF identities and suffixes are not exposed. There is no erase, forget or counter-reset button.
+The global diagnostic identifies the affected slot and outcomes such as `awaiting_confirmation`, `association_pending`, `radio_busy`, `counter_exhausted` or `storage_corrupt`. RF identities and suffixes are not exposed. There is no erase, forget or counter-reset button. This adapter exposes addition, explicit retry and confirmation only; the core’s replacement, service, cancellation, retirement and legacy-initialization operations have no ESPHome controls in this version.
 
 ## Storage and updates
 
@@ -75,7 +75,7 @@ The journal is a dedicated, unencrypted **64 KiB raw flash partition**, `x2d_jou
 
 Only native ESPHome **application OTA** is supported. Before its first flash write, the component rejects new commands, cancels queued work and drains the current frame boundary. A 250 ms timeout forces the carrier low and marks the result uncertain. OTA errors never replay cancelled work. Configure API encryption and OTA authentication in your local configuration before enabling RF.
 
-Keep the flash size and partition layout unchanged across updates. Custom partitions, partition-table OTA, web/HTTP OTA and captive portal are rejected. The component validates the actual journal address and geometry at boot. A corrupt or missing journal disables RF and the native API, retaining previously discovered Home Assistant entities as unavailable instead of advertising an empty inventory. It never reformats corrupt storage. A full-chip erase destroys the identities and counters and requires a new supervised association; do not restore an old journal snapshot or copy it to another transmitter.
+Keep the flash size and partition layout unchanged across updates. Custom partitions, partition-table OTA, web/HTTP OTA and captive portal are rejected. The component validates the actual journal address and geometry at boot. A corrupt or missing journal disables RF and the native API, retaining previously discovered Home Assistant entities as unavailable instead of advertising an empty inventory. It never reformats corrupt storage. A valid v1 journal reports `initialization_required` and cannot transmit; this adapter has no migration/reset action. A v2 journal interrupted during explicit initialization resumes durable finalization before RF becomes available. A full-chip erase destroys the identities and counters and requires a new supervised association; do not restore an old journal snapshot or copy it to another transmitter.
 
 ## Checks and limits
 
@@ -93,7 +93,7 @@ library (`<x2d/...>`, namespace `x2d`). The RP2040 MySensors adapter lives in
 [`ha-x2d`](https://github.com/guilhem/ha-x2d); this ESPHome adapter owns native
 API visibility, OTA and restart after confirmation.
 
-CI runs the host controller, radio runtime, CC1101, encoder and flash-adapter checks with ASan/UBSan, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, authorization, STOP priority, counter exhaustion, corrupted storage, waveform equivalence, flash access guards and injected timing faults. The flash and SPI/GPIO doubles exercise software behavior, not physical hardware.
+CI runs the host controller, radio runtime, CC1101, encoder and flash-adapter checks with ASan/UBSan, schema/code-generation checks and the reference ESP32-S3 compilation. It checks out the exact core revision automatically. Software tests cover reboot recovery, private suffix validation, rejection of obsolete trial flags, lifecycle attempt bounds, STOP priority, counter exhaustion, corrupted storage, waveform equivalence, flash access guards and injected timing faults. The flash and SPI/GPIO doubles exercise software behavior, not physical hardware.
 
 To run the host checks with the same sanitizers locally, add these options to the CMake configuration command:
 

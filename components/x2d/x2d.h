@@ -56,7 +56,7 @@ class X2DComponent : public Component, public RadioBus
   void set_status_sensor(text_sensor::TextSensor *sensor) { status_sensor_ = sensor; }
   void add_cover(X2DCover *cover, uint8_t slot);
   void command(uint8_t slot, ::x2d::Action action) { controller_.command(slot, action, millis()); }
-  void associate() { controller_.associate(millis()); }
+  void associate();
   void confirm();
   uint32_t random_u32();
   void status(const char *message, uint8_t slot);
